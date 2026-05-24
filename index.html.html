@@ -569,6 +569,27 @@ input.err,select.err{border-color:rgba(240,108,108,.55)!important;box-shadow:0 0
 .auth-forgot a{font-size:12px;color:#8A817C;cursor:pointer}
 .auth-forgot a:hover{color:#C2B8AE}
 
+
+/* Date input calendar icon — visible on dark theme */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.7;
+  cursor: pointer;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+
+/* Note items */
+.note-item{padding:14px 20px;border-bottom:1px solid #262626;display:flex;gap:12px;align-items:flex-start}
+.note-item:last-child{border-bottom:none}
+.note-type-badge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;background:rgba(214,204,194,.1);color:#C2B8AE;white-space:nowrap;margin-top:2px;flex-shrink:0}
+.note-body{flex:1;min-width:0}
+.note-client{font-size:12px;font-weight:500;color:#D6CCC2;margin-bottom:3px}
+.note-text{font-size:13px;color:#EDE0D4;line-height:1.55;margin-bottom:4px}
+.note-date{font-size:11px;color:#52525B}
+
 </style>
 </head>
 <body>
@@ -708,7 +729,7 @@ input.err,select.err{border-color:rgba(240,108,108,.55)!important;box-shadow:0 0
         <div class="notif-dot"></div>
       </div>
       <button class="btn btn-ghost hide-mobile" onclick="openInvModal()">+ New invoice</button>
-      <button class="btn btn-primary" onclick="showToast('Upgrade plans coming soon!','blue')">Upgrade ✦</button>
+      <button class="btn btn-primary" onclick="showUpgradePrompt()">Upgrade ✦</button>
     </div>
   </header>
 
@@ -787,18 +808,48 @@ input.err,select.err{border-color:rgba(240,108,108,.55)!important;box-shadow:0 0
     <!-- INBOX -->
     <div class="screen" id="s-inbox">
       <div class="ai-box anim-child">
-        <div class="ai-label"><span class="ai-dot"></span> AI inbox summary</div>
-        <div class="ai-text">Your AI inbox is coming soon. For now, manage your clients and invoices below to keep your work organised.</div>
+        <div class="ai-label"><span class="ai-dot"></span> NudgeCore AI</div>
+        <div class="ai-text" id="inbox-ai-text">Add a note to track any client communication — calls, emails, meetings, follow-ups. Never lose context on a client again.</div>
       </div>
+
+      <!-- Add note form -->
+      <div class="card anim-child" style="margin-bottom:16px">
+        <div class="card-header"><span class="card-title">Add a note</span></div>
+        <div style="padding:16px 20px">
+          <div class="form-grp">
+            <label class="form-lbl">Client</label>
+            <select id="note-client"><option value="">Select client...</option></select>
+          </div>
+          <div class="form-grp">
+            <label class="form-lbl">Note</label>
+            <textarea id="note-text" placeholder="e.g. Called Sarah — she needs the proposal by Friday. Follow up Thursday." style="min-height:80px"></textarea>
+          </div>
+          <div class="two-col">
+            <div class="form-grp">
+              <label class="form-lbl">Type</label>
+              <select id="note-type">
+                <option value="Note">Note</option>
+                <option value="Call">Call</option>
+                <option value="Email">Email</option>
+                <option value="Meeting">Meeting</option>
+                <option value="Follow-up">Follow-up</option>
+              </select>
+            </div>
+            <div style="display:flex;align-items:flex-end;padding-bottom:16px">
+              <button class="btn btn-primary" style="width:100%" onclick="saveNote()">Save note</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notes list -->
       <div class="card anim-child">
         <div class="card-header">
-          <span class="card-title">Inbox</span>
-          <span class="card-sub">Coming soon</span>
+          <span class="card-title">Client notes</span>
+          <span class="card-sub" id="notes-count">—</span>
         </div>
-        <div style="padding:56px 20px;text-align:center">
-          <div style="font-size:28px;margin-bottom:12px;opacity:0.25">✉</div>
-          <div style="font-size:14px;font-weight:500;color:#C2B8AE;margin-bottom:6px">Email inbox coming soon</div>
-          <div style="font-size:12px;color:#52525B;max-width:320px;margin:0 auto">Connect your email to let NudgeCore AI read your messages and tell you what action to take.</div>
+        <div id="notes-list">
+          <div style="padding:40px 20px;text-align:center;color:#52525B;font-size:13px">No notes yet — add your first one above.</div>
         </div>
       </div>
     </div>
@@ -825,9 +876,8 @@ input.err,select.err{border-color:rgba(240,108,108,.55)!important;box-shadow:0 0
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Invoice</th><th>Client</th><th>Amount</th><th>Due</th><th>Status</th><th></th></tr></thead>
-            <tbody>
-              </tbody>
+            <thead><tr><th>Description</th><th>Client</th><th>Amount</th><th>Due</th><th>Status</th><th></th></tr></thead>
+            <tbody id="inv-tbody"><tr><td colspan="6" style="text-align:center;color:#52525B;padding:32px">Loading...</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -870,6 +920,31 @@ input.err,select.err{border-color:rgba(240,108,108,.55)!important;box-shadow:0 0
 </div>
 </div>
 
+
+
+<!-- UPGRADE MODAL -->
+<div class="modal-wrap" id="upgrade-modal">
+  <div class="modal" style="text-align:center;padding:40px 36px">
+    <div style="font-size:32px;margin-bottom:16px">✦</div>
+    <div class="modal-title" style="margin-bottom:8px">Free plan limit reached</div>
+    <div style="font-size:13px;color:#8A817C;margin-bottom:24px;line-height:1.7">
+      You've used your 2 free client slots.<br>
+      Upgrade to <strong style="color:#EDE0D4">NudgeCore Pro</strong> for unlimited clients, unlimited invoices, and priority support.
+    </div>
+    <div style="background:#171717;border:1px solid #262626;border-radius:12px;padding:20px;margin-bottom:24px">
+      <div style="font-size:28px;font-weight:700;color:#EDE0D4;margin-bottom:4px">₹299<span style="font-size:14px;font-weight:400;color:#8A817C">/month</span></div>
+      <div style="font-size:12px;color:#8A817C">Unlimited everything. Cancel anytime.</div>
+      <div style="margin-top:14px;text-align:left">
+        <div style="font-size:13px;color:#C2B8AE;padding:5px 0;border-bottom:1px solid #262626">✓ Unlimited clients</div>
+        <div style="font-size:13px;color:#C2B8AE;padding:5px 0;border-bottom:1px solid #262626">✓ Unlimited invoices</div>
+        <div style="font-size:13px;color:#C2B8AE;padding:5px 0;border-bottom:1px solid #262626">✓ AI email drafting</div>
+        <div style="font-size:13px;color:#C2B8AE;padding:5px 0">✓ Priority support</div>
+      </div>
+    </div>
+    <button class="btn btn-primary" style="width:100%;padding:13px;font-size:15px;margin-bottom:10px" onclick="showToast('Payment coming soon! We will email you.','green');closeModal('upgrade-modal')">Upgrade to Pro ✦</button>
+    <button class="btn btn-ghost" style="width:100%" onclick="closeModal('upgrade-modal')">Maybe later</button>
+  </div>
+</div>
 
 <!-- ADD CLIENT MODAL -->
 <div class="modal-wrap" id="add-client-modal">
@@ -999,6 +1074,86 @@ function statusBadge(s) {
   return '<span class="badge ' + (cls[s]||'badge-dim') + '">' + esc(s||'—') + '</span>';
 }
 
+
+/* ── NOTES / INBOX ───────────────────────────────────────── */
+async function loadNoteDropdown() {
+  var sb = getSB(); if (!sb || !S.user) return;
+  var r = await sb.from('clients').select('name').eq('user_id', S.user.id).order('name');
+  var sel = document.getElementById('note-client'); if (!sel) return;
+  sel.innerHTML = '<option value="">Select client...</option>';
+  if (r && r.data) {
+    r.data.forEach(function(c) {
+      var o = document.createElement('option');
+      o.value = c.name; o.textContent = c.name;
+      sel.appendChild(o);
+    });
+  }
+}
+
+async function saveNote() {
+  var client = document.getElementById('note-client').value;
+  var text   = document.getElementById('note-text').value.trim();
+  var type   = document.getElementById('note-type').value;
+  if (!text) { showToast('Please write a note first', 'red'); return; }
+  var sb = getSB(); if (!sb) return;
+  var r = await sb.from('notes').insert({
+    user_id:     S.user.id,
+    client_name: client || null,
+    note_text:   text,
+    note_type:   type
+  });
+  if (r && r.error) {
+    // Table might not exist yet — show helpful message
+    if (r.error.message && r.error.message.includes('notes')) {
+      showToast('Create the notes table in Supabase first', 'red');
+    } else {
+      showToast('Error: ' + r.error.message, 'red');
+    }
+    return;
+  }
+  document.getElementById('note-text').value = '';
+  document.getElementById('note-client').value = '';
+  showToast('Note saved!', 'green');
+  loadNotes();
+}
+
+async function loadNotes() {
+  var sb = getSB(); if (!sb || !S.user) return;
+  var r = await sb.from('notes').select('*').eq('user_id', S.user.id).order('created_at', {ascending:false});
+  if (r && r.error) { return; }
+  var data = (r && r.data) ? r.data : [];
+  var list = document.getElementById('notes-list');
+  var count = document.getElementById('notes-count');
+  if (!list) return;
+  if (count) count.textContent = data.length + ' note' + (data.length !== 1 ? 's' : '');
+  if (data.length === 0) {
+    list.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#52525B;font-size:13px">No notes yet — add your first one above.</div>';
+    return;
+  }
+  list.innerHTML = data.map(function(n) {
+    var typeColors = { Call:'#A3B89A', Email:'#C9A96E', Meeting:'#C2B8AE', 'Follow-up':'#C47C7C', Note:'#8A817C' };
+    var col = typeColors[n.note_type] || '#8A817C';
+    return '<div class="note-item">' +
+      '<span class="note-type-badge" style="color:' + col + ';background:rgba(214,204,194,.08)">' + esc(n.note_type||'Note') + '</span>' +
+      '<div class="note-body">' +
+        (n.client_name ? '<div class="note-client">' + esc(n.client_name) + '</div>' : '') +
+        '<div class="note-text">' + esc(n.note_text) + '</div>' +
+        '<div class="note-date">' + fmtDate(n.created_at) + '</div>' +
+      '</div>' +
+      '<button class="act-btn" data-nid="' + esc(n.id) + '" onclick="delNote(this)" style="flex-shrink:0">Delete</button>' +
+    '</div>';
+  }).join('');
+}
+
+async function delNote(btn) {
+  var id = btn.getAttribute('data-nid');
+  var sb = getSB(); if (!sb) return;
+  await sb.from('notes').delete().eq('id', id).eq('user_id', S.user.id);
+  showToast('Note deleted', 'green');
+  loadNotes();
+}
+/* ─────────────────────────────────────────────────────── */
+
 /* ── CLIENTS ─────────────────────────────────────────────── */
 async function loadClients() {
   if (!S.user) return;
@@ -1053,6 +1208,11 @@ function renderClients(list) {
     out += '<div class="add-card" onclick="openAddClientModal()"><div class="add-ring">+</div><div style="font-size:13px;color:#52525B">Add client</div></div>';
   }
   grid.innerHTML = out;
+}
+
+
+function showUpgradePrompt() {
+  document.getElementById('upgrade-modal').classList.add('open');
 }
 
 function openAddClientModal() {
@@ -1114,18 +1274,33 @@ function invForClient(btn) {
 async function delClient(btn) {
   var id   = btn.getAttribute('data-cid');
   var name = btn.getAttribute('data-cname');
-  if (!confirm('Delete ' + name + '? This cannot be undone.')) return;
+  if (!confirm('Delete ' + name + '? This will also delete all their invoices and notes. This cannot be undone.')) return;
   var sb = getSB();
+  // Delete all invoices for this client first
+  await sb.from('invoices').delete().eq('user_id', S.user.id).eq('client_name', name);
+  // Delete all notes for this client
+  await sb.from('notes').delete().eq('user_id', S.user.id).eq('client_name', name);
+  // Then delete the client
   await sb.from('clients').delete().eq('id', id).eq('user_id', S.user.id);
-  showToast(name + ' deleted', 'green');
-  loadClients();
+  showToast(name + ' and their data deleted', 'green');
+  // Reload everything so dashboard, nudges, invoices all update
+  await loadClients();
+  await loadInvoices();
 }
 
 /* ── INVOICES ────────────────────────────────────────────── */
 async function loadInvoices() {
   if (!S.user) return;
   var sb = getSB(); if (!sb) return;
+  // Show loading state
+  var tbody = document.getElementById('inv-tbody');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#52525B;padding:32px">Loading...</td></tr>';
   var r = await sb.from('invoices').select('*').eq('user_id', S.user.id).order('created_at', {ascending:false});
+  if (r && r.error) {
+    console.error('loadInvoices error:', r.error);
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#C47C7C;padding:32px">Error loading invoices: ' + r.error.message + '</td></tr>';
+    return;
+  }
   var data = (r && r.data) ? r.data : [];
   S.lastInvoices = data;
   renderInvoices(data);
@@ -1412,7 +1587,9 @@ async function saveInvoice() {
   closeModal('inv-modal');
   showToast('Invoice created for ' + ic.value, 'green');
   ic.value=''; idesc.value=''; iamt.value='';
-  loadInvoices();
+  // Navigate to invoices tab to show the new invoice
+  navTo('invoices');
+  loadClientDropdown();
 }
 
 async function markPaid(btn) {
@@ -1624,6 +1801,7 @@ function navTo(id) {
     : m.sub;
   closeSidebar();
   if (id === 'revenue') { S.chartDone = true; buildChartWithData(S.lastInvoices||[]); }
+  if (id === 'inbox') { loadNotes(); loadNoteDropdown(); }
   if (id === 'clients') loadClients();
   if (id === 'invoices') { loadInvoices(); loadClientDropdown(); }
   if (id === 'nudges') updateDashboard(S.lastInvoices||[], S.clientCount||0);
